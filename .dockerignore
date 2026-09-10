@@ -1,0 +1,33 @@
+# The Dockerfile only copies these runtime inputs.
+**
+!requirements.txt
+!app/
+!app/**
+
+# Exclude local/generated files even when nested inside app/.
+**/.env*
+**/*.env
+**/.envrc
+**/.venv*
+**/venv
+**/env
+**/ENV
+**/__pycache__
+**/*.py[cod]
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.codegraph
+**/.git
+**/.idea
+**/.vscode
+**/data
+**/logs
+**/*.log
+**/*.log.*
+**/.DS_Store
+**/Thumbs.db
+**/Desktop.ini
+**/*.swp
+**/*.swo
+**/*~

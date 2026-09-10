@@ -1,0 +1,46 @@
+# Local configuration and secrets (keep the public template)
+.env*
+!.env.example
+*.env
+.envrc
+
+# Python environments
+.venv*/
+venv/
+env/
+ENV/
+.python-version
+
+# Python caches, tests, and build output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage*
+htmlcov/
+coverage.xml
+build/
+dist/
+*.egg-info/
+
+# Runtime state and logs
+/data/**
+!/data/.gitkeep
+logs/
+*.log
+*.log.*
+
+# Local indexes and editor/OS files
+.codegraph/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+.cursor
