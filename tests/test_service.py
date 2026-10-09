@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+from unittest.mock import Mock, patch
 from pathlib import Path
 
 from app.config import Settings
-from app.main import FatalServiceError, NotificationService
+from app.main import FatalServiceError, NotificationService, run_service
 from app.notifier import NotificationError
 from app.state import StateStore
 
@@ -42,6 +43,37 @@ def settings(path: Path, dry_run: bool = False) -> Settings:
 
 
 class ServiceTests(unittest.TestCase):
+    def test_env_switch_controls_request_and_sent_body(self) -> None:
+        for enabled in (True, False):
+            with self.subTest(enabled=enabled), tempfile.TemporaryDirectory() as directory:
+                cfg = Settings.from_env({
+                    "WECOM_WEBHOOK_URL": "https://example.com/hook",
+                    "STATE_FILE": str(Path(directory) / "state.json"),
+                    "INCLUDE_TWEET_TRANSLATION": str(enabled).lower(),
+                })
+                api_http = Mock()
+                api_http.get.return_value = Mock(
+                    status_code=200, headers={},
+                    json=Mock(return_value={"data": {"items": [record(
+                        "translated", text="Original announcement.", translatedText="已完成重置。",
+                    )]}}),
+                )
+                webhook_http = Mock()
+                webhook_http.post.return_value = Mock(
+                    status_code=200, json=Mock(return_value={"errcode": 0}),
+                )
+                with patch("app.api.UrlLibClient", return_value=api_http), patch(
+                    "app.notifier.UrlLibClient", return_value=webhook_http
+                ):
+                    self.assertEqual(run_service(cfg, once=True), 0)
+                params = api_http.get.call_args.kwargs["params"]
+                content = webhook_http.post.call_args.kwargs["json"]["text"]["content"]
+                self.assertEqual(params.get("lang"), "zh-CN" if enabled else None)
+                self.assertEqual("已完成重置。" in content, enabled)
+                self.assertNotIn("Original announcement.", content)
+                self.assertIn("查看原公告：https://example.com/event", content)
+                self.assertTrue(StateStore(cfg.state_file).load().is_sent("scheduled:translated"))
+
     def test_success_persists_and_next_poll_is_quiet(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "state.json"

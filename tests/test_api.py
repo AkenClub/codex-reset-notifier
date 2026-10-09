@@ -33,6 +33,18 @@ class ApiTests(unittest.TestCase):
         api = ApiClient("https://example.com/records", 15, client=client)
         self.assertEqual(api.fetch_records(), [{"id": "1"}])
         self.assertEqual(
+            client.calls[0][1]["params"],
+            {"kind": "all", "page": 1, "pageSize": 10, "lang": "zh-CN"}
+        )
+
+    def test_disabled_translation_omits_language(self) -> None:
+        client = FakeClient(FakeResponse(200, {"data": {"items": []}}))
+        api = ApiClient(
+            "https://example.com/records", 15, client=client,
+            include_tweet_translation=False,
+        )
+        self.assertEqual(api.fetch_records(), [])
+        self.assertEqual(
             client.calls[0][1]["params"], {"kind": "all", "page": 1, "pageSize": 10}
         )
 

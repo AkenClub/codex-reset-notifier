@@ -1,6 +1,29 @@
 # 发布镜像到 Docker Hub
 
-目标仓库为 `ppken/codex-reset-notifier`。以下版本号是操作示例，不表示这些标签已经发布。每次发布使用一个新的版本标签，并同时更新 `latest`；正式服务器推荐固定版本标签，便于回滚。
+目标仓库为 `ppken/codex-reset-notifier`。当前已发布版本为 `1.1.0`，`latest` 指向同一镜像。首次发布章节保留 `1.0.0` 作为初版示例。每次发布使用一个新的版本标签，并同时更新 `latest`；正式服务器推荐固定版本标签，便于回滚。
+
+## 1.1.0 发布记录（2026-10-09）
+
+- Docker Hub：[ppken/codex-reset-notifier](https://hub.docker.com/r/ppken/codex-reset-notifier/tags?name=1.1.0)
+- 标签：`1.1.0`、`latest`；已推送并核对远端摘要一致。
+- 运行平台：`linux/amd64`；镜像索引另含构建证明，不代表额外运行平台。
+- 内容：默认推送公告中文译文，缺失时回退原文；`INCLUDE_TWEET_TRANSLATION=false` 关闭正文展示。
+- 验证：Python 3.12 镜像内 38 项离线测试通过，确认非 root 运行和默认译文开关，镜像未包含 `.env` 或运行状态文件。
+
+镜像索引摘要：
+
+```text
+sha256:bd780b38029aae75469c0789d857cc7a0578a210249f28619e802897ecb01df3
+```
+
+跟随 `latest` 的服务器在部署目录执行：
+
+```bash
+docker compose pull notifier
+docker compose up -d --no-build notifier
+```
+
+固定版本部署请先把 `image` 改为 `ppken/codex-reset-notifier:1.1.0`，再执行以上命令。保留原 `.env` 和 `data/` 挂载。
 
 ## 首次发布
 
@@ -46,6 +69,8 @@ docker buildx imagetools inspect ppken/codex-reset-notifier:latest
 
 服务器只需要修改后的 `docker-compose.yml`、`.env` 和 `data/`，无需应用源码。私有仓库需先在服务器运行 `docker login`。首次新部署时复制 `.env.example` 为 `.env`，设置 `STATE_FILE=/app/data/state.json`、`DRY_RUN=true` 并填写 Webhook；已有 `.env` 不要覆盖。
 
+公告中文译文默认开启，旧 `.env` 无需补写；如需关闭译文和原文正文，添加 `INCLUDE_TWEET_TRANSLATION=false`。译文缺失时默认回退到公告原文。修改 `.env` 后执行 `docker compose up -d --no-build --force-recreate notifier` 重新加载配置。
+
 以下命令在 Linux 服务器部署目录执行。镜像使用非 root 用户，绑定目录必须允许该用户写入；首次创建空目录后设置属主：
 
 ```bash
@@ -65,24 +90,24 @@ docker compose logs --tail=100 notifier
 
 ## 修改代码后的更新发布
 
-例如从 `1.0.0` 更新到 `1.0.1`，在开发机项目根目录执行：
+当前代码版本已从 `1.0.0` 更新到 `1.1.0`，包含公告中文译文推送与环境变量开关。在开发机项目根目录执行：
 
 ```bash
-docker build --pull --platform linux/amd64 -t ppken/codex-reset-notifier:1.0.1 -t ppken/codex-reset-notifier:latest .
+docker build --pull --platform linux/amd64 -t ppken/codex-reset-notifier:1.1.0 -t ppken/codex-reset-notifier:latest .
 ```
 
-使用前面的容器测试命令，将镜像标签改为 `1.0.1`。测试通过后发布：
+使用前面的容器测试命令，将镜像标签改为 `1.1.0`。测试通过后发布：
 
 ```bash
-docker push ppken/codex-reset-notifier:1.0.1
+docker push ppken/codex-reset-notifier:1.1.0
 docker push ppken/codex-reset-notifier:latest
-docker buildx imagetools inspect ppken/codex-reset-notifier:1.0.1
+docker buildx imagetools inspect ppken/codex-reset-notifier:1.1.0
 docker buildx imagetools inspect ppken/codex-reset-notifier:latest
 ```
 
 不要覆盖已经发布的版本标签。若只构建而没有推送，服务器无法获取本次修改。
 
-服务器上把 `docker-compose.yml` 的 `image` 改为 `ppken/codex-reset-notifier:1.0.1`，再执行：
+服务器上把 `docker-compose.yml` 的 `image` 改为 `ppken/codex-reset-notifier:1.1.0`，再执行：
 
 ```bash
 docker compose pull notifier

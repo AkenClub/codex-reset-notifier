@@ -2,10 +2,13 @@
 
 一个单实例、无入站端口的 Python 服务。它每 15 分钟读取 CodexRunway 的公开重置记录，把可信的排期、额度重置和重置卡发放事件发送到企业微信群机器人。
 
+当前版本为 `1.1.0`，已于 2026-10-09 发布到 [Docker Hub](https://hub.docker.com/r/ppken/codex-reset-notifier/tags?name=1.1.0)，`latest` 已同步。新增默认开启的公告中文译文及 `INCLUDE_TWEET_TRANSLATION` 环境变量开关。版本摘要与验证记录见 [发布文档](DOCKER_PUBLISH.md)。
+
 ## 功能范围
 
 - 支持 `global`、`banked`、`global_and_banked` 三类重置事件。
 - 支持排期提醒和完成提醒。
+- 默认附加公告的简体中文译文（包括 Tibo 的重置相关推文），译文缺失时回退原文；可在 `.env` 中关闭正文展示。
 - 使用企业微信纯文本（`text`）消息，公告链接直接展示 URL；按 UTF-8 2048 字节上限分批，单条超长事件会截断并标注。
 - 使用本地 JSON 文件持久化去重，容器重启后不重复播报。
 - 先建立排期与完成记录的关联，再决定是否通知；同一完成事件只发送一次。
@@ -84,6 +87,7 @@ services:
 WECOM_WEBHOOK_URL=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=替换为你的机器人key
 POLL_INTERVAL_SECONDS=900
 CONFIDENCE_THRESHOLD=0.90
+INCLUDE_TWEET_TRANSLATION=true
 DISPLAY_TIMEZONE=Asia/Shanghai
 STATE_FILE=/app/data/state.json
 HTTP_TIMEOUT_SECONDS=15
@@ -150,12 +154,27 @@ Compose 不映射端口，使用 `./data:/app/data` 保存状态，并配置了�
 | `WECOM_WEBHOOK_URL` | 无 | 企业微信群机器人 Webhook；服务会去掉末尾中文逗号 |
 | `POLL_INTERVAL_SECONDS` | `900` | 轮询间隔，启动后立即检查 |
 | `CONFIDENCE_THRESHOLD` | `0.90` | 可信度阈值，范围 `0` 到 `1` |
+| `INCLUDE_TWEET_TRANSLATION` | `true` | 附加公告中文译文，缺失时显示原文；设为 `false` 隐藏整段公告正文 |
 | `DISPLAY_TIMEZONE` | `Asia/Shanghai` | 消息展示时区 |
 | `STATE_FILE` | `/app/data/state.json` | 去重状态文件路径 |
 | `HTTP_TIMEOUT_SECONDS` | `15` | API 和机器人请求超时 |
 | `DRY_RUN` | `false` | 预览模式不发送、不保存发送状态 |
 
 `CODEXRUNWAY_API_URL` 也可用于测试环境覆盖默认接口地址，但不需要在生产配置中设置。
+
+### 公告译文开关
+
+默认开启，无需在已有 `.env` 中补写配置。开启时，请求附加 `lang=zh-CN`，消息优先显示 API 返回的 `translatedText`；译文缺失、尚未完成或已与当前正文不一致时，显示 `text` 原文并标注“暂无译文”。正文和译文均为空时不显示该段。此功能展示重置事件的来源公告，不订阅 Tibo 的全部推文。
+
+要关闭译文及原文正文，在 `.env` 中设置：
+
+```dotenv
+INCLUDE_TWEET_TRANSLATION=false
+```
+
+关闭后请求不附加 `lang`，消息仍包含重置时间、套餐、可信度及原公告链接。译文和原文沿用现有 2048 字节分批及超长截断规则，原公告链接位于正文前，便于阅读完整内容。
+
+修改 `.env` 后需重新启动本地进程；Docker Compose 部署执行 `docker compose up -d --force-recreate notifier`，让容器重新加载环境变量。开关变化不会重新发送已经推送过的事件。
 
 ## 去重和失败恢复
 
@@ -184,11 +203,12 @@ Compose 不映射端口，使用 `./data:/app/data` 保存状态，并配置了�
 python -m unittest discover -s tests -v
 ```
 
-覆盖内容包括可信度判断、人工确认规则、排期/完成关联、跨轮去重、状态原子持久化、损坏状态、机器人业务错误、API 限流、预览模式和消息格式化。
+覆盖内容包括可信度判断、人工确认规则、排期/完成关联、跨轮去重、状态原子持久化、损坏状态、机器人业务错误、API 限流、预览模式、译文开关、译文缺失回退和消息格式化。
 
 ## 数据和外部协议
 
-- CodexRunway records endpoint：`https://www.codexrunway.com/openapi/v1/records?kind=all&page=1&pageSize=10`
+- CodexRunway / Did Codex Reset API 文档：[开放 API](https://didcodexreset.com/zh/api.html)
+- CodexRunway records endpoint（默认请求译文）：`https://www.codexrunway.com/openapi/v1/records?kind=all&page=1&pageSize=10&lang=zh-CN`
 - CodexRunway reset history：`https://www.codexrunway.com/zh/history.html`
 - 企业微信官方群机器人文档：`https://developer.work.weixin.qq.com/document/path/91770`
 

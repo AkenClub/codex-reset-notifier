@@ -83,7 +83,11 @@ class NotificationService:
         if not evaluation.notifications:
             return CycleResult(status="no_notifications")
 
-        chunks = build_message_chunks(evaluation.notifications, self.settings.display_timezone)
+        chunks = build_message_chunks(
+            evaluation.notifications,
+            self.settings.display_timezone,
+            include_tweet_translation=self.settings.include_tweet_translation,
+        )
         if self.settings.dry_run:
             self._preview(chunks)
             return CycleResult(status="dry_run", notifications=evaluation.notifications)
@@ -121,7 +125,11 @@ class NotificationService:
 
 def run_service(settings: Settings, once: bool = False) -> int:
     state_store = StateStore(settings.state_file)
-    api_client = ApiClient(settings.api_url, settings.http_timeout_seconds)
+    api_client = ApiClient(
+        settings.api_url,
+        settings.http_timeout_seconds,
+        include_tweet_translation=settings.include_tweet_translation,
+    )
     notifier = (
         None
         if settings.dry_run

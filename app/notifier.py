@@ -218,7 +218,12 @@ def _confidence_line(record: Record) -> str:
     return "确认方式：运营人工确认"
 
 
-def format_notification(notification: Notification, timezone_name: str) -> str:
+def format_notification(
+    notification: Notification,
+    timezone_name: str,
+    *,
+    include_tweet_translation: bool = True,
+) -> str:
     record = notification.record
     label = "预计时间" if notification.kind == "scheduled" else "完成时间"
     lines = [
@@ -232,6 +237,15 @@ def format_notification(notification: Notification, timezone_name: str) -> str:
     if notification.kind == "completed" and record.reset_type == "banked":
         lines.extend(["", "请在账号中查看重置卡到账情况。"])
     lines.extend(["", f"查看原公告：{_source_url(record)}"])
+    if include_tweet_translation:
+        translated = record.raw.get("translatedText")
+        original = record.raw.get("text")
+        translated = translated.strip() if isinstance(translated, str) else None
+        original = original.strip() if isinstance(original, str) else None
+        if translated:
+            lines.extend(["", "公告译文：", translated])
+        elif original:
+            lines.extend(["", "公告原文（暂无译文）：", original])
     return "\n".join(lines)
 
 
@@ -250,10 +264,23 @@ def _truncate_utf8(text: str, limit: int) -> str:
 
 
 def build_message_chunks(
-    notifications: Iterable[Notification], timezone_name: str
+    notifications: Iterable[Notification],
+    timezone_name: str,
+    *,
+    include_tweet_translation: bool = True,
 ) -> tuple[MessageChunk, ...]:
     entries = [
-        (notification, _truncate_utf8(format_notification(notification, timezone_name), MAX_TEXT_BYTES))
+        (
+            notification,
+            _truncate_utf8(
+                format_notification(
+                    notification,
+                    timezone_name,
+                    include_tweet_translation=include_tweet_translation,
+                ),
+                MAX_TEXT_BYTES,
+            ),
+        )
         for notification in notifications
     ]
     chunks: list[MessageChunk] = []

@@ -50,9 +50,12 @@ class ApiClient:
         url: str,
         timeout_seconds: float,
         client: Any | None = None,
+        *,
+        include_tweet_translation: bool = True,
     ):
         self.url = url
         self.timeout_seconds = timeout_seconds
+        self.include_tweet_translation = include_tweet_translation
         self._client = client or UrlLibClient()
         self._owns_client = client is None
 
@@ -61,10 +64,13 @@ class ApiClient:
             self._client.close()
 
     def fetch_records(self) -> list[dict[str, Any]]:
+        params: dict[str, str | int] = {"kind": "all", "page": 1, "pageSize": 10}
+        if self.include_tweet_translation:
+            params["lang"] = "zh-CN"
         try:
             response = self._client.get(
                 self.url,
-                params={"kind": "all", "page": 1, "pageSize": 10},
+                params=params,
                 timeout=self.timeout_seconds,
             )
         except (TransportError, OSError) as exc:

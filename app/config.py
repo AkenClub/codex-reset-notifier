@@ -63,6 +63,7 @@ class Settings:
     http_timeout_seconds: float = 15.0
     dry_run: bool = False
     api_url: str = DEFAULT_API_URL
+    include_tweet_translation: bool = True
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> "Settings":
@@ -111,4 +112,8 @@ class Settings:
             ),
             dry_run=dry_run,
             api_url=_get(values, "CODEXRUNWAY_API_URL", DEFAULT_API_URL),
+            include_tweet_translation=_parse_bool(
+                _get(values, "INCLUDE_TWEET_TRANSLATION", "true"),
+                "INCLUDE_TWEET_TRANSLATION",
+            ),
         )

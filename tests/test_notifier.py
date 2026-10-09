@@ -57,6 +57,61 @@ class NotifierTests(unittest.TestCase):
         self.assertNotIn("[查看原公告]", content)
         self.assertIn("查看原公告：https://example.com/event", content)
 
+    def test_translation_is_preferred_over_original(self) -> None:
+        parsed = Record.from_mapping(record(
+            "translated", text="Original announcement.",
+            translatedText="  已完成重置。\n请查看账户。  ",
+        ))
+        content = format_notification(
+            Notification("scheduled:translated", "scheduled", parsed), "Asia/Shanghai"
+        )
+        self.assertIn("公告译文：\n已完成重置。\n请查看账户。", content)
+        self.assertNotIn("Original announcement.", content)
+        self.assertIn("查看原公告：https://example.com/event", content)
+
+    def test_missing_translation_falls_back_to_original(self) -> None:
+        for translated in (None, "", "  ", {"invalid": "value"}):
+            with self.subTest(translated=translated):
+                parsed = Record.from_mapping(record(
+                    "fallback", text="  Original announcement.  ", translatedText=translated,
+                ))
+                content = format_notification(
+                    Notification("scheduled:fallback", "scheduled", parsed), "Asia/Shanghai"
+                )
+                self.assertIn("公告原文（暂无译文）：\nOriginal announcement.", content)
+                self.assertNotIn("公告译文：", content)
+
+    def test_absent_body_does_not_add_empty_section(self) -> None:
+        parsed = Record.from_mapping(record("empty", text=None, translatedText=None))
+        content = format_notification(
+            Notification("scheduled:empty", "scheduled", parsed), "Asia/Shanghai"
+        )
+        self.assertNotIn("公告译文：", content)
+        self.assertNotIn("公告原文", content)
+
+    def test_disabled_translation_hides_both_bodies_in_chunks(self) -> None:
+        parsed = Record.from_mapping(record(
+            "disabled", text="Original announcement.", translatedText="已完成重置。",
+        ))
+        chunks = build_message_chunks(
+            [Notification("scheduled:disabled", "scheduled", parsed)], "Asia/Shanghai",
+            include_tweet_translation=False,
+        )
+        self.assertEqual(len(chunks), 1)
+        self.assertNotIn("已完成重置。", chunks[0].content)
+        self.assertNotIn("Original announcement.", chunks[0].content)
+        self.assertIn("查看原公告：https://example.com/event", chunks[0].content)
+
+    def test_long_translation_keeps_source_and_respects_byte_limit(self) -> None:
+        parsed = Record.from_mapping(record("long-translation", translatedText="译文" * 2000))
+        notification = Notification("scheduled:long-translation", "scheduled", parsed)
+        chunks = build_message_chunks([notification], "Asia/Shanghai")
+        self.assertEqual(len(chunks), 1)
+        self.assertLessEqual(len(chunks[0].content.encode("utf-8")), MAX_TEXT_BYTES)
+        self.assertIn("查看原公告：https://example.com/event", chunks[0].content)
+        self.assertTrue(chunks[0].content.endswith("（内容已截断）"))
+        self.assertEqual(chunks[0].notifications, (notification,))
+
     def test_banked_title_and_trailing_chinese_comma(self) -> None:
         parsed = Record.from_mapping(
             record(
